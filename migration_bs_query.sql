@@ -13,11 +13,10 @@ WITH
       'P291100000' AS "Account",
       'reconciliation' AS "AccountGroup",
       CAST(JDT1."Debit" - JDT1."Credit" AS BIGINT) * -1 AS "Amount",
-      OJDT."RefDate",
+      JDT1."RefDate",
       JDT1."Account" AS "ItemText"
     FROM
-      OJDT
-      INNER JOIN JDT1 ON JDT1."TransId" = OJDT."TransId"
+      JDT1
       INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
       LEFT JOIN OCRD ON OCRD."CardCode" = JDT1."ShortName"
     WHERE
@@ -40,11 +39,10 @@ WITH
         WHEN OACT."GroupMask" = 8 THEN '08 other expenses'
       END AS "AccountGroup",
       CAST(JDT1."Debit" - JDT1."Credit" AS BIGINT) AS "Amount",
-      OJDT."RefDate",
+      JDT1."RefDate",
       JDT1."Account" AS "ItemText"
     FROM
-      OJDT
-      INNER JOIN JDT1 ON JDT1."TransId" = OJDT."TransId"
+      JDT1
       INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
       LEFT JOIN accounts_mapping am ON am."Id" = JDT1."Account"
       LEFT JOIN OCRD ON OCRD."CardCode" = JDT1."ShortName"
@@ -93,8 +91,8 @@ SELECT
   ) AS "1_grouping",
   'E930' AS "2_company_code",
   'ZS' AS "3_document_type",
-  '20260131' AS "4_document_date",
-  '20260131' AS "5_posting_date",
+  '20260331' AS "4_document_date",
+  '20260331' AS "5_posting_date",
   NULL AS "6_reverse_date",
   NULL AS "7_currency_date",
   'BS-ACCTS' AS "8_reference",
