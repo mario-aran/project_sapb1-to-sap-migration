@@ -130,7 +130,7 @@ WITH
       LEFT JOIN payment_terms_mapping ptm ON ptm."Id" = md."GroupNum"
     WHERE
       JDT1."RefDate" <= '2026-03-31' -- Filter by posting date
-      AND JDT1."BalDueDeb" <> JDT1."BalDueCred" -- Keep only open entries
+      AND JDT1."BalDueDeb" <> JDT1."BalDueCred" -- Keep only open lines
   ),
   combined_entries AS (
     SELECT

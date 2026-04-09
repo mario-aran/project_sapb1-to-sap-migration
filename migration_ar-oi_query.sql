@@ -4,12 +4,12 @@ WITH
     SELECT
       *
     FROM
-      OINV
+      OINV -- A/R Invoice
     UNION ALL
     SELECT
       *
     FROM
-      ORIN
+      ORIN -- A/P Credit Memo
   ),
   /* Entries */
   reconciliation_entries AS (
@@ -38,32 +38,28 @@ WITH
       CAST(
         CASE
           WHEN JDT1."FCCurrency" IS NOT NULL THEN JDT1."BalDueDeb" - JDT1."BalDueCred"
-          ELSE NULL
         END AS BIGINT
       ) * -1 AS "AmountDI",
       CAST(JDT1."BalDueDeb" - JDT1."BalDueCred" AS BIGINT) * -1 AS "AmountCLP",
-      OJDT."TransId",
+      JDT1."TransId",
       JDT1."Line_ID",
       OCRD."CardCode",
-      TO_VARCHAR (OJDT."TaxDate", 'YYYYMMDD') AS "DocumentDate",
+      TO_VARCHAR (JDT1."TaxDate", 'YYYYMMDD') AS "DocumentDate",
       COALESCE(JDT1."FCCurrency", OADM."MainCurncy") AS "Currency",
       CASE
-        WHEN md."TransId" IS NOT NULL THEN OJDT."DocSeries" || '-' || md."FolioNum"
-        ELSE OJDT."DocSeries" || '-' || OJDT."TransId"
+        WHEN md."TransId" IS NOT NULL THEN md."FolioPref" || '-' || md."FolioNum"
+        ELSE TO_VARCHAR (JDT1."TransId")
       END AS "Reference"
     FROM
-      OJDT
+      JDT1
       CROSS JOIN OADM
-      INNER JOIN JDT1 ON OJDT."TransId" = JDT1."TransId"
-      INNER JOIN OACT ON JDT1."Account" = OACT."AcctCode"
-      INNER JOIN OCRD ON (
-        JDT1."ShortName" = OCRD."CardCode"
-        AND OCRD."CardType" = 'C'
-      ) /* Only include customer lines */
-      LEFT JOIN marketing_documents md ON OJDT."TransId" = md."TransId"
+      INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
+      INNER JOIN OCRD ON OCRD."CardCode" = JDT1."ShortName"
+      AND OCRD."CardType" = 'C' -- Keep only customer lines
+      LEFT JOIN marketing_documents md ON md."TransId" = JDT1."TransId"
     WHERE
-      (JDT1."BalDueDeb" - JDT1."BalDueCred") <> 0 /* Only include open entries */
-      AND OJDT."RefDate" <= '2026-01-31' /* Filter by posting date */
+      JDT1."RefDate" <= '2026-03-31' -- Filter by posting date
+      AND JDT1."BalDueDeb" <> JDT1."BalDueCred" -- Keep only open lines
   ),
   journal_entries AS (
     SELECT
@@ -79,7 +75,7 @@ WITH
         WHEN OACT."GroupMask" = 7 THEN '07 other income'
         WHEN OACT."GroupMask" = 8 THEN '08 other expenses'
       END AS "AccountGroup",
-      TO_VARCHAR (OJDT."DueDate", 'YYYYMMDD') AS "BaselineDate",
+      TO_VARCHAR (JDT1."DueDate", 'YYYYMMDD') AS "BaselineDate",
       COALESCE(LPAD (OCRD."U_ID_SAP_AFS1", 10, '0'), 'NOT MAPPED') || '-' || OCRD."CardCode" AS "ItemText",
       REPLACE (
         REPLACE (
@@ -100,32 +96,28 @@ WITH
       CAST(
         CASE
           WHEN JDT1."FCCurrency" IS NOT NULL THEN JDT1."BalDueDeb" - JDT1."BalDueCred"
-          ELSE NULL
         END AS BIGINT
       ) AS "AmountDI",
       CAST(JDT1."BalDueDeb" - JDT1."BalDueCred" AS BIGINT) AS "AmountCLP",
-      OJDT."TransId",
+      JDT1."TransId",
       JDT1."Line_ID",
       OCRD."CardCode",
-      TO_VARCHAR (OJDT."TaxDate", 'YYYYMMDD') AS "DocumentDate",
+      TO_VARCHAR (JDT1."TaxDate", 'YYYYMMDD') AS "DocumentDate",
       COALESCE(JDT1."FCCurrency", OADM."MainCurncy") AS "Currency",
       CASE
-        WHEN md."TransId" IS NOT NULL THEN OJDT."DocSeries" || '-' || md."FolioNum"
-        ELSE OJDT."DocSeries" || '-' || OJDT."TransId"
+        WHEN md."TransId" IS NOT NULL THEN md."FolioPref" || '-' || md."FolioNum"
+        ELSE TO_VARCHAR (JDT1."TransId")
       END AS "Reference"
     FROM
-      OJDT
+      JDT1
       CROSS JOIN OADM
-      INNER JOIN JDT1 ON OJDT."TransId" = JDT1."TransId"
-      INNER JOIN OACT ON JDT1."Account" = OACT."AcctCode"
-      INNER JOIN OCRD ON (
-        JDT1."ShortName" = OCRD."CardCode"
-        AND OCRD."CardType" = 'C'
-      ) /* Only include customer lines */
-      LEFT JOIN marketing_documents md ON OJDT."TransId" = md."TransId"
+      INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
+      INNER JOIN OCRD ON OCRD."CardCode" = JDT1."ShortName"
+      AND OCRD."CardType" = 'C' -- Keep only customer lines
+      LEFT JOIN marketing_documents md ON md."TransId" = JDT1."TransId"
     WHERE
-      (JDT1."BalDueDeb" - JDT1."BalDueCred") <> 0 /* Only include open entries */
-      AND OJDT."RefDate" <= '2026-01-31' /* Filter by posting date */
+      JDT1."RefDate" <= '2026-03-31' -- Filter by posting date
+      AND JDT1."BalDueDeb" <> JDT1."BalDueCred" -- Keep only open lines
   ),
   combined_entries AS (
     SELECT
@@ -148,7 +140,7 @@ SELECT
   'E930' AS "2_company_code",
   'Z1' AS "3_document_type",
   "DocumentDate" AS "4_document_date",
-  '20260131' AS "5_posting_date",
+  '20260331' AS "5_posting_date", -- Change date based on filter
   NULL AS "6_reverse_date",
   NULL AS "7_currency_date",
   "Reference" AS "8_reference",
