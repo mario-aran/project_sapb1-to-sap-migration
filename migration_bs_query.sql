@@ -44,8 +44,8 @@ WITH
     FROM
       JDT1
       INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
-      LEFT JOIN accounts_mapping am ON am."Id" = JDT1."Account"
       LEFT JOIN OCRD ON OCRD."CardCode" = JDT1."ShortName"
+      LEFT JOIN accounts_mapping am ON am."Id" = JDT1."Account"
     WHERE
       JDT1."Debit" <> JDT1."Credit" -- Exclude zero-balance lines
       AND OACT."GroupMask" IN (1, 2, 3) -- Keep only BS accounts
@@ -74,7 +74,7 @@ WITH
       combined_entries ce
       CROSS JOIN OADM
     WHERE
-      ce."RefDate" <= '2026-03-31' /* Filter by posting date */
+      ce."RefDate" <= '2026-03-31' -- Filter by posting date
     GROUP BY
       ce."Account",
       ce."ItemText",
