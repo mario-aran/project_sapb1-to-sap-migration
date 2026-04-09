@@ -7,14 +7,14 @@ WITH
     FROM
       SYS.DUMMY
   ),
-  profit_centers_mapping AS (
+  cost_centers_mapping AS (
     SELECT
       '0' AS "Id",
       NULL AS "MappedId"
     FROM
       SYS.DUMMY
   ),
-  cost_centers_mapping AS (
+  profit_centers_mapping AS (
     SELECT
       '0' AS "Id",
       NULL AS "MappedId"
@@ -35,19 +35,18 @@ WITH
       NULL AS "MaterialClass",
       CAST(JDT1."Debit" - JDT1."Credit" AS BIGINT) * -1 AS "TotalAmount",
       CAST(JDT1."Debit" - JDT1."Credit" AS BIGINT) * -1 AS "SplitAmount",
-      OJDT."TransId",
+      JDT1."TransId",
       JDT1."Line_ID",
       JDT1."Account" AS "ItemText",
-      TO_VARCHAR (LAST_DAY (OJDT."RefDate"), 'YYYYMMDD') AS "PostingDate"
+      TO_VARCHAR (LAST_DAY (JDT1."RefDate"), 'YYYYMMDD') AS "PostingDate"
     FROM
-      OJDT
-      INNER JOIN JDT1 ON OJDT."TransId" = JDT1."TransId"
-      INNER JOIN OACT ON JDT1."Account" = OACT."AcctCode"
+      JDT1
+      INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
     WHERE
-      OACT."GroupMask" IN (4, 5, 6, 7, 8) /* Only include P&L accounts */
-      AND OJDT."TransType" NOT IN (-2, -3) /* Ignore opening/closing balance transactions */
-      AND (JDT1."Debit" - JDT1."Credit") <> 0 /* Exclude lines with balance 0 */
-      AND OJDT."RefDate" BETWEEN '2026-01-01' AND '2026-01-31'  /* Filter by posting date */
+      (JDT1."RefDate" BETWEEN '2026-01-01' AND '2026-03-31') -- Filter by posting date
+      AND JDT1."Debit" <> JDT1."Credit" -- Exclude zero-balance lines
+      AND JDT1."TransType" NOT IN (-2, -3) -- Exclude opening/closing balance transactions
+      AND OACT."GroupMask" IN (4, 5, 6, 7, 8) -- Keep only P&L accounts
   ),
   journal_entries AS (
     SELECT
@@ -82,24 +81,23 @@ WITH
         CAST(JDT1."Debit" - JDT1."Credit" AS BIGINT) * COALESCE((OCR1."PrcAmount" / OOCR."OcrTotal"), 1),
         0
       ) AS "SplitAmount",
-      OJDT."TransId",
+      JDT1."TransId",
       JDT1."Line_ID",
       JDT1."Account" AS "ItemText",
-      TO_VARCHAR (LAST_DAY (OJDT."RefDate"), 'YYYYMMDD') AS "PostingDate"
+      TO_VARCHAR (LAST_DAY (JDT1."RefDate"), 'YYYYMMDD') AS "PostingDate"
     FROM
-      OJDT
-      INNER JOIN JDT1 ON OJDT."TransId" = JDT1."TransId"
-      INNER JOIN OACT ON JDT1."Account" = OACT."AcctCode"
-      LEFT JOIN accounts_mapping am ON JDT1."Account" = am."Id"
-      LEFT JOIN OOCR ON JDT1."ProfitCode" = OOCR."OcrCode"
-      LEFT JOIN OCR1 ON OOCR."OcrCode" = OCR1."OcrCode"
-      LEFT JOIN cost_centers_mapping ccm ON OCR1."PrcCode" = ccm."Id"
-      LEFT JOIN profit_centers_mapping pcm ON OCR1."PrcCode" = pcm."Id"
+      JDT1
+      INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
+      LEFT JOIN OOCR ON OOCR."OcrCode" = JDT1."ProfitCode"
+      LEFT JOIN OCR1 ON OCR1."OcrCode" = OOCR."OcrCode"
+      LEFT JOIN accounts_mapping am ON am."Id" = JDT1."Account"
+      LEFT JOIN cost_centers_mapping ccm ON ccm."Id" = OCR1."PrcCode"
+      LEFT JOIN profit_centers_mapping pcm ON pcm."Id" = OCR1."PrcCode"
     WHERE
-      OACT."GroupMask" IN (4, 5, 6, 7, 8) /* Only include P&L accounts */
-      AND OJDT."TransType" NOT IN (-2, -3) /* Ignore opening/closing balance transactions */
-      AND (JDT1."Debit" - JDT1."Credit") <> 0 /* Exclude lines with balance 0 */
-      AND OJDT."RefDate" BETWEEN '2026-01-01' AND '2026-01-31'  /* Filter by posting date */
+      (JDT1."RefDate" BETWEEN '2026-01-01' AND '2026-03-31') -- Filter by posting date
+      AND JDT1."Debit" <> JDT1."Credit" -- Exclude zero-balance lines
+      AND JDT1."TransType" NOT IN (-2, -3) -- Exclude opening/closing balance transactions
+      AND OACT."GroupMask" IN (4, 5, 6, 7, 8) -- Keep only P&L accounts
   ),
   combined_entries AS (
     SELECT
@@ -132,46 +130,49 @@ WITH
     FROM
       journal_entries
   ),
-  filtered_entries AS (
+  grouped_entries AS (
     SELECT
-      "PrcCode",
-      "Account",
-      "AccountGroup",
-      "CostCenter",
-      "ProfitCenter",
-      "BrandCategory",
-      "ProductLine",
-      "CollectionType",
-      "MaterialClass",
-      "ItemText",
-      "PostingDate",
+      ce."PrcCode",
+      ce."Account",
+      ce."AccountGroup",
+      ce."CostCenter",
+      ce."ProfitCenter",
+      ce."BrandCategory",
+      ce."ProductLine",
+      ce."CollectionType",
+      ce."MaterialClass",
+      ce."ItemText",
+      ce."PostingDate",
+      OADM."MainCurncy" AS "Currency",
       SUM(
         CASE
-          WHEN "RowNumDesc" = 1 THEN ("TotalAmount" - "RestAmount")
-          ELSE "SplitAmount"
+          WHEN ce."RowNumDesc" = 1 THEN (ce."TotalAmount" - ce."RestAmount")
+          ELSE ce."SplitAmount"
         END
       ) AS "Amount"
     FROM
-      combined_entries
+      combined_entries ce
+      CROSS JOIN OADM
     GROUP BY
-      "PrcCode",
-      "Account",
-      "AccountGroup",
-      "CostCenter",
-      "ProfitCenter",
-      "BrandCategory",
-      "ProductLine",
-      "CollectionType",
-      "MaterialClass",
-      "ItemText",
-      "PostingDate"
+      ce."PrcCode",
+      ce."Account",
+      ce."AccountGroup",
+      ce."CostCenter",
+      ce."ProfitCenter",
+      ce."BrandCategory",
+      ce."ProductLine",
+      ce."CollectionType",
+      ce."MaterialClass",
+      ce."ItemText",
+      ce."PostingDate",
+      OADM."MainCurncy"
     HAVING
       SUM(
         CASE
-          WHEN "RowNumDesc" = 1 THEN ("TotalAmount" - "RestAmount")
-          ELSE "SplitAmount"
+          WHEN ce."RowNumDesc" = 1 THEN (ce."TotalAmount" - ce."RestAmount")
+          ELSE ce."SplitAmount"
         END
-      ) <> 0 /* Exclude lines with balance 0 */
+      ) <> 0 -- Exclude zero-balance amount
   )
   /* Main Query */
 SELECT
@@ -193,12 +194,7 @@ SELECT
   'S' AS "12_item_type",
   "Account" AS "13_account",
   NULL AS "14_special_gl_indicator",
-  (
-    SELECT
-      "MainCurncy"
-    FROM
-      OADM
-  ) AS "15_currency",
+  "Currency" AS "15_currency",
   NULL AS "16_exchange_rate",
   "Amount" AS "17_amount",
   NULL AS "18_vat_code",
@@ -255,7 +251,7 @@ SELECT
   "AccountGroup" AS "CHECKAccountGroup",
   "PrcCode" AS "CHECKProfitCode"
 FROM
-  filtered_entries
+  grouped_entries
 ORDER BY
   "PostingDate",
   "ItemText",
