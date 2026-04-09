@@ -69,7 +69,7 @@ WITH
       LEFT JOIN marketing_documents md ON md."TransId" = JDT1."TransId"
     WHERE
       JDT1."RefDate" <= '2026-03-31' -- Filter by posting date
-      AND JDT1."BalDueDeb" <> JDT1."BalDueCred" -- Keep only open entries
+      AND JDT1."BalDueDeb" <> JDT1."BalDueCred" -- Keep only open lines
   ),
   journal_entries AS (
     SELECT
