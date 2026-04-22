@@ -7,9 +7,3 @@ Description: SAP HANA Queries created to migrate SAP B1 balances to SAP ECC:
 - (Assets) Fixed Assets balances​
 - (AP) Vendor open items balances​
 - (AR) Customer open items balances​
-
-# TO-DOs
-
-- [] Podrías generar los archivos de migracion al 31/marzo y enviármelos.
-- [] Indicar los filtros usados para que se logren procesar.
-- [] Documentar queries migration
