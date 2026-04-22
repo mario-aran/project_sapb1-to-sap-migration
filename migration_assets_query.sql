@@ -18,6 +18,7 @@ WITH
     FROM
       JDT1
       INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
+      INNER JOIN accounts_mapping am ON am."Id" = JDT1."Account" -- Exclude not-mapped accounts
     WHERE
       JDT1."Debit" <> JDT1."Credit" -- Exclude zero-balance lines
       AND JDT1."Account" LIKE '102%' -- Keep only asset accounts
@@ -41,7 +42,7 @@ WITH
     FROM
       JDT1
       INNER JOIN OACT ON OACT."AcctCode" = JDT1."Account"
-      LEFT JOIN accounts_mapping am ON am."Id" = JDT1."Account"
+      INNER JOIN accounts_mapping am ON am."Id" = JDT1."Account" -- Exclude not-mapped accounts
     WHERE
       JDT1."Debit" <> JDT1."Credit" -- Exclude zero-balance lines
       AND JDT1."Account" LIKE '102%' -- Keep only asset accounts
@@ -153,8 +154,6 @@ SELECT
   "AccountGroup" AS "CHECKAccountGroup"
 FROM
   grouped_entries
-  -- WHERE
-  --   "Account" = 'NOT MAPPED' -- draft-only: Detect not-mapped
 ORDER BY
   "ItemText",
   "AccountGroup"
