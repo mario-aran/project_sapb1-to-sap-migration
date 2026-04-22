@@ -154,7 +154,7 @@ SELECT
 FROM
   grouped_entries
   -- WHERE
-  --   "Account" = 'NOT MAPPED' -- draft-only: Detect non-mapped
+  --   "Account" = 'NOT MAPPED' -- draft-only: Detect not-mapped
 ORDER BY
   "ItemText",
   "AccountGroup"

@@ -81,7 +81,7 @@ WITH
       ce."AccountGroup",
       OADM."MainCurncy"
     HAVING
-      SUM(ce."Amount") <> 0 -- Exclude zero-balance amount
+      SUM(ce."Amount") <> 0 -- Exclude zero-balance sum
   )
   /* Main Query */
 SELECT
@@ -159,6 +159,8 @@ SELECT
   "AccountGroup" AS "CHECKAccountGroup"
 FROM
   grouped_entries
+  -- WHERE
+  --   "Account" = 'NOT MAPPED' -- draft-only: Detect not-mapped
 ORDER BY
   "ItemText",
   "AccountGroup"
