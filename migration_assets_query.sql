@@ -75,7 +75,7 @@ WITH
       ce."AccountGroup",
       OADM."MainCurncy"
     HAVING
-      SUM(ce."Amount") <> 0 -- Exclude zero-balance amount
+      SUM(ce."Amount") <> 0 -- Exclude zero-balance sum
   )
   /* Main Query */
 SELECT
